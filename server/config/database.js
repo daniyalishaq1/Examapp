@@ -1,25 +1,60 @@
 import mongoose from 'mongoose';
 
 const connectDB = async () => {
-  try {
-    const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/quickexam';
+  const maxRetries = 5;
+  const retryDelay = 5000; // 5 seconds
+  let currentTry = 1;
 
-    await mongoose.connect(mongoURI, {
-      serverSelectionTimeoutMS: 20000, // Increase timeout to 20 seconds
-      socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
-      maxPoolSize: 50, // Increase pool size for better concurrency
-      wtimeoutMS: 30000, // Write concern timeout
-      retryWrites: true,
-      retryReads: true
-    });
+  while (currentTry <= maxRetries) {
+    try {
+      const mongoURI = process.env.MONGODB_URI;
+      
+      if (!mongoURI) {
+        throw new Error('MONGODB_URI is not defined in environment variables');
+      }
 
-    // Set up connection error handling
-    mongoose.connection.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
-    });
+      await mongoose.connect(mongoURI, {
+        serverSelectionTimeoutMS: 20000,
+        socketTimeoutMS: 45000,
+        maxPoolSize: 50,
+        wtimeoutMS: 30000,
+        retryWrites: true,
+        retryReads: true,
+        useUnifiedTopology: true
+      });
 
-    console.log('✓ MongoDB Connected Successfully');
-    console.log(`📦 Database: ${mongoose.connection.name}`);
+      // Set up connection monitoring
+      mongoose.connection.on('error', (err) => {
+        console.error('MongoDB connection error:', err);
+        // Try to reconnect
+        setTimeout(() => {
+          console.log('Attempting to reconnect to MongoDB...');
+          mongoose.connect(mongoURI);
+        }, retryDelay);
+      });
+
+      mongoose.connection.on('disconnected', () => {
+        console.log('MongoDB disconnected. Attempting to reconnect...');
+        setTimeout(() => mongoose.connect(mongoURI), retryDelay);
+      });
+
+      console.log('✓ MongoDB Connected Successfully');
+      console.log(`📦 Database: ${mongoose.connection.name}`);
+      return;
+    } catch (error) {
+      console.error(`MongoDB connection attempt ${currentTry} failed:`, error.message);
+      
+      if (currentTry === maxRetries) {
+        console.error('All connection attempts failed');
+        throw new Error('Failed to connect to MongoDB after multiple attempts');
+      }
+
+      currentTry++;
+      console.log(`Retrying in ${retryDelay/1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
+};
   } catch (error) {
     console.error('✗ MongoDB Connection Error:', error.message);
     console.log('⚠️  App will continue with in-memory storage');
