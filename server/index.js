@@ -523,6 +523,11 @@ app.delete('/api/quizzes/:id', async (req, res) => {
 // Create/structure quiz with LLM
 app.post('/api/structure-quiz', async (req, res) => {
   try {
+    // Check MongoDB connection first
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('Database connection is not ready. Please try again.');
+    }
+
     const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks } = req.body;
 
     let questions = [];
@@ -541,7 +546,7 @@ app.post('/api/structure-quiz', async (req, res) => {
 
     const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
 
-    // Save to database
+    // Save to database with timeout handling
     const exam = new Exam({
       exam_title: examTitle,
       exam_type: examType,
@@ -550,7 +555,13 @@ app.post('/api/structure-quiz', async (req, res) => {
       questions: questions
     });
 
-    await exam.save();
+    // Set a timeout for the save operation
+    const savePromise = exam.save();
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Database operation timed out')), 15000);
+    });
+
+    await Promise.race([savePromise, timeoutPromise]);
 
     res.json({
       success: true,
@@ -565,9 +576,26 @@ app.post('/api/structure-quiz', async (req, res) => {
     });
   } catch (error) {
     console.error('Error structuring quiz:', error);
-    res.status(500).json({
+    
+    let statusCode = 500;
+    let errorMessage = error.message;
+
+    // Handle specific error types
+    if (error.name === 'MongooseError' || error.name === 'MongoError') {
+      statusCode = 503;
+      errorMessage = 'Database service temporarily unavailable. Please try again in a few moments.';
+    } else if (error.message.includes('timed out')) {
+      statusCode = 504;
+      errorMessage = 'The operation timed out. Please try again.';
+    } else if (mongoose.connection.readyState !== 1) {
+      statusCode = 503;
+      errorMessage = 'Database connection is not available. Please try again in a few moments.';
+    }
+
+    res.status(statusCode).json({
       success: false,
-      error: error.message
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
