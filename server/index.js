@@ -735,14 +735,48 @@ app.get('/api/teacher/exam/:examId/results', async (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    llm_provider: process.env.LLM_PROVIDER || 'mock',
-    openai_configured: !!openai,
-    database_connected: mongoose.connection.readyState === 1,
-    database_name: mongoose.connection.name || 'Not connected'
-  });
+app.get('/api/health', async (req, res) => {
+  try {
+    // Test database write
+    const testExam = new Exam({
+      exam_title: 'Test Exam',
+      exam_type: 'Test',
+      duration: 30,
+      total_marks: 10,
+      questions: [{
+        type: 'MCQ',
+        text: 'Test Question',
+        options: ['A', 'B', 'C', 'D'],
+        answer: 'A',
+        marks: 10
+      }]
+    });
+
+    await testExam.save();
+    await Exam.findByIdAndDelete(testExam._id);
+
+    res.json({
+      success: true,
+      llm_provider: process.env.LLM_PROVIDER || 'mock',
+      openai_configured: !!openai,
+      database_connected: mongoose.connection.readyState === 1,
+      database_name: mongoose.connection.name || 'Not connected',
+      mongo_uri_set: !!process.env.MONGODB_URI,
+      mongo_connection_state: mongoose.connection.readyState,
+      mongo_test_write: 'successful'
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      llm_provider: process.env.LLM_PROVIDER || 'mock',
+      openai_configured: !!openai,
+      database_connected: mongoose.connection.readyState === 1,
+      database_name: mongoose.connection.name || 'Not connected',
+      mongo_uri_set: !!process.env.MONGODB_URI,
+      mongo_connection_state: mongoose.connection.readyState,
+      mongo_error: error.message
+    });
+  }
 });
 
 // Serve index.html for all other routes to support client-side routing

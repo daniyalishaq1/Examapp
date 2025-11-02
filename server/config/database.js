@@ -13,6 +13,9 @@ const connectDB = async () => {
         throw new Error('MONGODB_URI is not defined in environment variables');
       }
 
+      console.log('Attempting to connect to MongoDB...');
+      console.log('Connection string:', mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//****:****@')); // Log URI with hidden credentials
+
       await mongoose.connect(mongoURI, {
         serverSelectionTimeoutMS: 20000,
         socketTimeoutMS: 45000,
