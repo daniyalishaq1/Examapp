@@ -26,7 +26,17 @@ app.use(express.json());
 app.use(express.static(path.join(process.cwd(), 'dist')));
 
 // Connect to MongoDB
-connectDB();
+(async () => {
+  try {
+    await connectDB();
+  } catch (error) {
+    console.error('Failed to connect to MongoDB:', error);
+    // Don't exit the process in production, let it retry
+    if (process.env.NODE_ENV !== 'production') {
+      process.exit(1);
+    }
+  }
+})();
 
 // Initialize OpenAI client
 const openai = process.env.OPENAI_API_KEY ? new OpenAI({
@@ -523,12 +533,22 @@ app.delete('/api/quizzes/:id', async (req, res) => {
 // Create/structure quiz with LLM
 app.post('/api/structure-quiz', async (req, res) => {
   try {
+    console.log('Received quiz creation request:', JSON.stringify(req.body, null, 2));
+
     // Check MongoDB connection first
     if (mongoose.connection.readyState !== 1) {
       throw new Error('Database connection is not ready. Please try again.');
     }
 
     const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks } = req.body;
+
+    // Validate required fields
+    if (!examTitle) throw new Error('Exam title is required');
+    if (!examType) throw new Error('Exam type is required');
+    if (!duration || isNaN(duration)) throw new Error('Valid duration is required');
+    if (!mcqContent && !shortContent) throw new Error('At least one question type content is required');
+    if (mcqContent && (!mcqMarks || isNaN(mcqMarks))) throw new Error('Valid MCQ marks are required');
+    if (shortContent && (!shortMarks || isNaN(shortMarks))) throw new Error('Valid short answer marks are required');
 
     let questions = [];
 
@@ -737,7 +757,12 @@ app.get('/api/teacher/exam/:examId/results', async (req, res) => {
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
-    // Test database write
+    // Basic connectivity check first
+    if (mongoose.connection.readyState !== 1) {
+      throw new Error('MongoDB is not connected');
+    }
+
+    // Test database write with timeout
     const testExam = new Exam({
       exam_title: 'Test Exam',
       exam_type: 'Test',
@@ -752,8 +777,17 @@ app.get('/api/health', async (req, res) => {
       }]
     });
 
-    await testExam.save();
-    await Exam.findByIdAndDelete(testExam._id);
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Database operation timed out')), 5000)
+    );
+
+    await Promise.race([
+      Promise.all([
+        testExam.save(),
+        testExam.save().then(saved => Exam.findByIdAndDelete(saved._id))
+      ]),
+      timeout
+    ]);
 
     res.json({
       success: true,
@@ -790,6 +824,40 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`Server is running on port ${PORT}`);
   });
 }
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler caught:', err);
+  res.status(500).json({
+    success: false,
+    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+    errorDetails: process.env.NODE_ENV === 'development' ? {
+      stack: err.stack,
+      name: err.name,
+      message: err.message
+    } : undefined
+  });
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  // Keep the process alive in production
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Process will continue running despite error');
+  } else {
+    process.exit(1);
+  }
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Keep the process alive in production
+  if (process.env.NODE_ENV === 'production') {
+    console.error('Process will continue running despite rejection');
+  }
+});
 
 // Export for Vercel
 export default app;
