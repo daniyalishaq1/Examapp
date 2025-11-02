@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import OpenAI from 'openai';
 import mongoose from 'mongoose';
 import connectDB from './config/database.js';
@@ -15,6 +16,7 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(process.cwd(), 'dist')));
 
 // Connect to MongoDB
 connectDB();
@@ -706,6 +708,11 @@ app.get('/api/health', (req, res) => {
     database_connected: mongoose.connection.readyState === 1,
     database_name: mongoose.connection.name || 'Not connected'
   });
+});
+
+// Serve index.html for all other routes to support client-side routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
 });
 
 // Start server (only in development)
