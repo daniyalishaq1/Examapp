@@ -132,31 +132,31 @@ D. Mark Zuckerberg
   const showShortSection = formData.examType === 'Short' || formData.examType === 'Mixed'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-primary-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+        <div className="text-center mb-10">
+          <h1 className="text-4xl font-semibold text-gray-900 mb-3">
             QuickExam Teacher Portal
           </h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 text-lg">
             Create AI-powered exams and view student results
           </p>
-          <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-            <span className="w-2 h-2 bg-indigo-600 rounded-full mr-2 animate-pulse"></span>
+          <div className="mt-4 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium bg-white border border-primary-200 text-gray-700 shadow-soft">
+            <span className="w-2 h-2 bg-accent-600 rounded-full mr-2 animate-pulse"></span>
             LLM Provider: {llmProvider.toUpperCase()}
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="mb-8">
-          <div className="bg-white rounded-lg shadow p-1 inline-flex">
+        <div className="mb-8 flex justify-center">
+          <div className="bg-white rounded-xl shadow-soft border border-primary-200 p-1.5 inline-flex">
             <button
               onClick={() => setActiveTab('create')}
-              className={`px-6 py-3 rounded-md font-semibold transition-all ${
+              className={`px-8 py-3 rounded-xl font-semibold transition-all ${
                 activeTab === 'create'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-accent-600 text-white shadow-soft'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-primary-50'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -168,10 +168,10 @@ D. Mark Zuckerberg
             </button>
             <button
               onClick={() => setActiveTab('results')}
-              className={`px-6 py-3 rounded-md font-semibold transition-all ${
+              className={`px-8 py-3 rounded-xl font-semibold transition-all ${
                 activeTab === 'results'
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
+                  ? 'bg-accent-600 text-white shadow-soft'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-primary-50'
               }`}
             >
               <span className="flex items-center gap-2">
@@ -188,24 +188,24 @@ D. Mark Zuckerberg
         {activeTab === 'create' ? (
           <>
         {/* Main Form Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-semibold text-gray-800">
+        <div className="bg-white rounded-2xl shadow-soft-lg border border-primary-200 p-10 mb-8">
+          <div className="flex justify-between items-center mb-8 pb-6 border-b border-primary-200">
+            <h2 className="text-2xl font-semibold text-gray-900">
               Create New Exam
             </h2>
             <button
               type="button"
               onClick={loadExample}
-              className="text-sm text-indigo-600 hover:text-indigo-800 underline"
+              className="text-sm text-accent-600 hover:text-accent-700 font-medium underline"
             >
               Load Example
             </button>
           </div>
 
-          <form onSubmit={handleGenerateQuiz} className="space-y-6">
+          <form onSubmit={handleGenerateQuiz} className="space-y-8">
             {/* Exam Title */}
             <div>
-              <label htmlFor="examTitle" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="examTitle" className="block text-sm font-semibold text-gray-700 mb-3">
                 Exam Title
               </label>
               <input
@@ -215,14 +215,14 @@ D. Mark Zuckerberg
                 value={formData.examTitle}
                 onChange={handleChange}
                 placeholder="e.g., Midterm Exam - AI Fundamentals"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                className="w-full px-4 py-3.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
               />
             </div>
 
             {/* Exam Type and Duration */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="examType" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="examType" className="block text-sm font-semibold text-gray-700 mb-3">
                   Exam Type
                 </label>
                 <select
@@ -230,7 +230,7 @@ D. Mark Zuckerberg
                   name="examType"
                   value={formData.examType}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-3.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
                 >
                   <option value="MCQ">MCQ Only</option>
                   <option value="Short">Short Answer Only</option>
@@ -239,7 +239,7 @@ D. Mark Zuckerberg
               </div>
 
               <div>
-                <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="duration" className="block text-sm font-semibold text-gray-700 mb-3">
                   Duration (minutes)
                 </label>
                 <input
@@ -250,23 +250,23 @@ D. Mark Zuckerberg
                   onChange={handleChange}
                   placeholder="e.g., 30"
                   min="1"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
+                  className="w-full px-4 py-3.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition"
                 />
               </div>
             </div>
 
             {/* MCQ Section */}
             {showMCQSection && (
-              <div className="border-2 border-blue-200 rounded-lg p-6 bg-blue-50">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-blue-900 flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="border border-primary-200 rounded-xl p-6 bg-white">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <svg className="w-5 h-5 mr-2.5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Multiple Choice Questions
                   </h3>
-                  <div className="flex items-center">
-                    <label htmlFor="mcqMarks" className="text-sm font-medium text-blue-800 mr-2">
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="mcqMarks" className="text-sm font-semibold text-gray-700">
                       Marks per MCQ:
                     </label>
                     <input
@@ -276,7 +276,7 @@ D. Mark Zuckerberg
                       value={formData.mcqMarks}
                       onChange={handleChange}
                       min="1"
-                      className="w-20 px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-20 px-3 py-2 border border-primary-200 rounded-lg focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none"
                     />
                   </div>
                 </div>
@@ -287,9 +287,9 @@ D. Mark Zuckerberg
                   onChange={handleChange}
                   rows="8"
                   placeholder={exampleMCQ}
-                  className="w-full px-4 py-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition font-mono text-sm bg-white"
+                  className="w-full px-4 py-3.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition font-mono text-sm bg-primary-50"
                 />
-                <p className="text-xs text-blue-700 mt-2">
+                <p className="text-xs text-gray-600 mt-3">
                   Tip: Provide questions in natural language. Include options A-D and mark the correct answer.
                 </p>
               </div>
@@ -297,16 +297,16 @@ D. Mark Zuckerberg
 
             {/* Short Answer Section */}
             {showShortSection && (
-              <div className="border-2 border-purple-200 rounded-lg p-6 bg-purple-50">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-purple-900 flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="border border-primary-200 rounded-xl p-6 bg-white">
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <svg className="w-5 h-5 mr-2.5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                     </svg>
                     Short Answer Questions
                   </h3>
-                  <div className="flex items-center">
-                    <label htmlFor="shortMarks" className="text-sm font-medium text-purple-800 mr-2">
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="shortMarks" className="text-sm font-semibold text-gray-700">
                       Marks per Short:
                     </label>
                     <input
@@ -316,7 +316,7 @@ D. Mark Zuckerberg
                       value={formData.shortMarks}
                       onChange={handleChange}
                       min="1"
-                      className="w-20 px-3 py-2 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      className="w-20 px-3 py-2 border border-primary-200 rounded-lg focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none"
                     />
                   </div>
                 </div>
@@ -327,9 +327,9 @@ D. Mark Zuckerberg
                   onChange={handleChange}
                   rows="6"
                   placeholder={exampleShort}
-                  className="w-full px-4 py-3 border border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition font-mono text-sm bg-white"
+                  className="w-full px-4 py-3.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none transition font-mono text-sm bg-primary-50"
                 />
-                <p className="text-xs text-purple-700 mt-2">
+                <p className="text-xs text-gray-600 mt-3">
                   Tip: List your short answer questions. The LLM will structure them with expected answers.
                 </p>
               </div>
@@ -339,10 +339,10 @@ D. Mark Zuckerberg
             <button
               type="submit"
               disabled={loading}
-              className={`w-full py-4 px-6 rounded-lg font-semibold text-white transition-all ${
+              className={`w-full py-4 px-6 rounded-xl font-semibold text-white transition-all ${
                 loading
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-lg transform hover:-translate-y-0.5'
+                  : 'bg-accent-600 hover:bg-accent-700 shadow-soft hover:shadow-soft-lg transform hover:-translate-y-0.5'
               }`}
             >
               {loading ? (

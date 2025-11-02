@@ -121,7 +121,7 @@ const QuestionPage = () => {
         toast.error('Maximum warnings reached! Auto-submitting exam...');
         setTimeout(() => handleSubmit(), 1000);
       } else {
-        toast.error(`⚠️ Warning ${newCount}/${MAX_WARNINGS}: ${message}`);
+        toast.error(`Warning ${newCount}/${MAX_WARNINGS}: ${message}`);
         setShowWarningModal(true);
         setTimeout(() => setShowWarningModal(false), 3000);
       }
@@ -193,7 +193,7 @@ const QuestionPage = () => {
   };
 
   const getTimeColor = () => {
-    if (timeRemaining > 300) return 'text-green-600';
+    if (timeRemaining > 300) return 'text-primary-700';
     if (timeRemaining > 60) return 'text-yellow-600';
     return 'text-red-600 animate-pulse';
   };
@@ -212,10 +212,10 @@ const QuestionPage = () => {
 
   if (!exam) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen bg-primary-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading exam...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-accent-600 mx-auto mb-4"></div>
+          <p className="text-primary-600 font-medium">Loading exam...</p>
         </div>
       </div>
     );
@@ -227,36 +227,36 @@ const QuestionPage = () => {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 py-8 px-4 sm:px-6 lg:px-8"
+      className="min-h-screen bg-primary-50 py-8 px-4 sm:px-6 lg:px-8"
       style={{ userSelect: 'none', WebkitUserSelect: 'none', MozUserSelect: 'none' }}
     >
       <div className="max-w-4xl mx-auto">
         {/* Header with Timer and Warnings */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex justify-between items-center">
+        <div className="bg-white rounded-2xl border border-primary-200 shadow-soft-lg p-8 mb-6">
+          <div className="flex justify-between items-center mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{exam.exam_title}</h1>
-              <p className="text-sm text-gray-600 mt-1">
+              <h1 className="text-2xl font-semibold text-primary-900">{exam.exam_title}</h1>
+              <p className="text-sm text-primary-600 mt-1">
                 Question {currentQuestionIndex + 1} of {exam.questions.length}
               </p>
             </div>
             <div className="text-right">
-              <div className={`text-3xl font-bold ${getTimeColor()}`}>
+              <div className={`text-4xl font-semibold tabular-nums ${getTimeColor()}`}>
                 {formatTime(timeRemaining)}
               </div>
-              <p className="text-xs text-gray-600">Time Remaining</p>
+              <p className="text-xs text-primary-600 mt-1">Time Remaining</p>
             </div>
           </div>
 
           {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="flex justify-between text-xs text-gray-600 mb-1">
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-primary-600">
               <span>Progress: {Math.round(progress)}%</span>
               <span>Answered: {answeredCount}/{exam.questions.length}</span>
             </div>
-            <div className="bg-gray-200 rounded-full h-2">
+            <div className="bg-primary-100 rounded-full h-2 overflow-hidden">
               <div
-                className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full transition-all duration-300"
+                className="bg-accent-600 h-2 rounded-full transition-all duration-300 ease-out"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -264,18 +264,18 @@ const QuestionPage = () => {
 
           {/* Warning Counter */}
           {warningCount > 0 && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                  <span className="font-semibold text-red-800">
+                  <span className="font-semibold text-red-900">
                     Warnings: {warningCount}/{MAX_WARNINGS}
                   </span>
                 </div>
-                <span className="text-xs text-red-600">
-                  {MAX_WARNINGS - warningCount} warnings left
+                <span className="text-sm text-red-700">
+                  {MAX_WARNINGS - warningCount} remaining
                 </span>
               </div>
             </div>
@@ -283,43 +283,55 @@ const QuestionPage = () => {
         </div>
 
         {/* Disclaimer */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-          <div className="flex gap-3">
-            <svg className="w-6 h-6 text-yellow-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+          <div className="flex gap-4">
+            <svg className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
-            <div className="text-sm text-yellow-800">
-              <p className="font-semibold mb-1">⚠️ Exam Integrity Notice:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Do not switch tabs or windows during the exam</li>
-                <li>Right-click and text selection are disabled</li>
-                <li>You will receive a warning for any suspicious activity</li>
-                <li>After {MAX_WARNINGS} warnings, your exam will be auto-submitted</li>
+            <div className="flex-1">
+              <p className="font-semibold text-amber-900 mb-2">Exam Integrity Notice</p>
+              <ul className="space-y-1.5 text-sm text-amber-800">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>Do not switch tabs or windows during the exam</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>Right-click and text selection are disabled</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>You will receive a warning for any suspicious activity</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">•</span>
+                  <span>After {MAX_WARNINGS} warnings, your exam will be auto-submitted</span>
+                </li>
               </ul>
             </div>
           </div>
         </div>
 
         {/* Question Card */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
-          <div className="flex items-start gap-3 mb-6">
-            <span className="flex-shrink-0 w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center font-bold">
+        <div className="bg-white rounded-2xl border border-primary-200 shadow-soft-lg p-8 mb-6">
+          <div className="flex items-start gap-4 mb-8">
+            <span className="flex-shrink-0 w-12 h-12 bg-accent-100 text-accent-700 rounded-xl flex items-center justify-center font-semibold text-lg">
               {currentQuestionIndex + 1}
             </span>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-3">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-4">
+                <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
                   currentQuestion.type === 'MCQ'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-purple-100 text-purple-700'
+                    ? 'bg-accent-100 text-accent-700'
+                    : 'bg-primary-100 text-primary-700'
                 }`}>
                   {currentQuestion.type}
                 </span>
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-primary-600 font-medium">
                   {currentQuestion.marks} {currentQuestion.marks === 1 ? 'mark' : 'marks'}
                 </span>
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              <h2 className="text-xl font-semibold text-primary-900 leading-relaxed mb-6">
                 {currentQuestion.text}
               </h2>
 
@@ -328,10 +340,10 @@ const QuestionPage = () => {
                   {currentQuestion.options.map((option, index) => (
                     <label
                       key={index}
-                      className={`flex items-start p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      className={`flex items-start p-4 border-2 rounded-xl cursor-pointer transition-all ${
                         answers[currentQuestion._id] === option
-                          ? 'border-purple-500 bg-purple-50'
-                          : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                          ? 'border-accent-500 bg-accent-50 shadow-soft'
+                          : 'border-primary-200 hover:border-accent-300 hover:bg-primary-50'
                       }`}
                     >
                       <input
@@ -340,9 +352,9 @@ const QuestionPage = () => {
                         value={option}
                         checked={answers[currentQuestion._id] === option}
                         onChange={(e) => handleAnswerChange(currentQuestion._id, e.target.value)}
-                        className="mt-1 text-purple-600 focus:ring-purple-500"
+                        className="mt-1 text-accent-600 focus:ring-accent-500 focus:ring-2"
                       />
-                      <span className="ml-3 text-gray-900">{option}</span>
+                      <span className="ml-3 text-primary-900 flex-1">{option}</span>
                     </label>
                   ))}
                 </div>
@@ -352,7 +364,7 @@ const QuestionPage = () => {
                   onChange={(e) => handleAnswerChange(currentQuestion._id, e.target.value)}
                   placeholder="Type your answer here..."
                   rows="6"
-                  className="w-full p-4 border-2 border-gray-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none"
+                  className="w-full p-4 border-2 border-primary-200 rounded-xl focus:ring-2 focus:ring-accent-500 focus:border-accent-500 outline-none resize-none text-primary-900 placeholder-primary-400"
                 />
               )}
             </div>
@@ -364,30 +376,30 @@ const QuestionPage = () => {
           <button
             onClick={goToPrevious}
             disabled={currentQuestionIndex === 0}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all ${
+            className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all ${
               currentQuestionIndex === 0
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                ? 'bg-primary-100 text-primary-400 cursor-not-allowed'
+                : 'bg-white text-accent-600 border-2 border-accent-600 hover:bg-accent-50 shadow-soft hover:shadow-soft-lg'
             }`}
           >
-            ← Previous
+            Previous
           </button>
 
           {currentQuestionIndex < exam.questions.length - 1 ? (
             <button
               onClick={goToNext}
-              className="flex-1 py-3 px-6 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all"
+              className="flex-1 py-3.5 px-6 bg-accent-600 text-white rounded-xl font-semibold hover:bg-accent-700 transition-all shadow-soft hover:shadow-soft-lg"
             >
-              Next →
+              Next
             </button>
           ) : (
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className={`flex-1 py-3 px-6 rounded-lg font-semibold transition-all ${
+              className={`flex-1 py-3.5 px-6 rounded-xl font-semibold transition-all ${
                 isSubmitting
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 text-white'
+                  ? 'bg-primary-300 cursor-not-allowed text-white'
+                  : 'bg-green-600 hover:bg-green-700 text-white shadow-soft hover:shadow-soft-lg'
               }`}
             >
               {isSubmitting ? (
@@ -408,19 +420,19 @@ const QuestionPage = () => {
 
       {/* Warning Modal */}
       {showWarningModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md animate-bounce">
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-soft-xl p-8 max-w-md animate-bounce">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="w-10 h-10 text-red-600" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-red-600 mb-2">WARNING!</h3>
-              <p className="text-gray-700 mb-4">
+              <h3 className="text-2xl font-semibold text-red-600 mb-2">WARNING!</h3>
+              <p className="text-primary-700 mb-4">
                 Suspicious activity detected!
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-primary-600">
                 Warning {warningCount} of {MAX_WARNINGS}
               </p>
             </div>
