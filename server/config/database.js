@@ -17,13 +17,14 @@ const connectDB = async () => {
       console.log('Connection string:', mongoURI.replace(/\/\/([^:]+):([^@]+)@/, '//****:****@')); // Log URI with hidden credentials
 
       await mongoose.connect(mongoURI, {
-        serverSelectionTimeoutMS: 20000,
+        serverSelectionTimeoutMS: 30000,
         socketTimeoutMS: 45000,
-        maxPoolSize: 50,
-        wtimeoutMS: 30000,
+        maxPoolSize: 10,
+        connectTimeoutMS: 30000,
         retryWrites: true,
         retryReads: true,
-        useUnifiedTopology: true
+        autoIndex: true,
+        minPoolSize: 2
       });
 
       // Set up connection monitoring
@@ -48,19 +49,22 @@ const connectDB = async () => {
       console.error(`MongoDB connection attempt ${currentTry} failed:`, error.message);
       
       if (currentTry === maxRetries) {
-        console.error('All connection attempts failed');
-        throw new Error('Failed to connect to MongoDB after multiple attempts');
+        console.error('Failed to connect to MongoDB after maximum retries');
+        if (process.env.NODE_ENV === 'production') {
+          console.error('Connection failed in production, will keep retrying');
+          // Reset retry counter and continue trying
+          currentTry = 1;
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        } else {
+          throw new Error('Failed to connect to MongoDB after maximum retries');
+        }
       }
-
-      currentTry++;
-      console.log(`Retrying in ${retryDelay/1000} seconds...`);
+      
+      // Wait before trying again
       await new Promise(resolve => setTimeout(resolve, retryDelay));
+      currentTry++;
     }
-  }
-};
-  } catch (error) {
-    console.error('✗ MongoDB Connection Error:', error.message);
-    console.log('⚠️  App will continue with in-memory storage');
   }
 };
 

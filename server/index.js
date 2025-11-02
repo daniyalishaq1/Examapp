@@ -19,11 +19,16 @@ app.use(cors({
     ? ['https://examapp-git-main-danyalishaq1-gmailcoms-projects.vercel.app', 
        'https://examapp-9qxj27i4k-danyalishaq1-gmailcoms-projects.vercel.app']
     : 'http://localhost:5173',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 
 app.use(express.json());
-app.use(express.static(path.join(process.cwd(), 'dist')));
+app.use(express.static(path.join(process.cwd(), 'dist'), {
+  maxAge: '1h',
+  etag: true,
+  lastModified: true
+}));
 
 // Connect to MongoDB
 (async () => {
@@ -535,9 +540,19 @@ app.post('/api/structure-quiz', async (req, res) => {
   try {
     console.log('Received quiz creation request:', JSON.stringify(req.body, null, 2));
 
-    // Check MongoDB connection first
+    // Ensure MongoDB connection (important for serverless)
     if (mongoose.connection.readyState !== 1) {
-      throw new Error('Database connection is not ready. Please try again.');
+      console.log('Database not connected, attempting to connect...');
+      try {
+        await connectDB();
+      } catch (dbError) {
+        console.error('Failed to connect to database:', dbError);
+        return res.status(503).json({
+          success: false,
+          error: 'Database connection is not available. Please try again in a few moments.',
+          details: process.env.NODE_ENV === 'development' ? dbError.message : undefined
+        });
+      }
     }
 
     const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks } = req.body;
@@ -552,21 +567,26 @@ app.post('/api/structure-quiz', async (req, res) => {
 
     let questions = [];
 
-    // Parse MCQ questions
-    if (mcqContent && mcqContent.trim()) {
-      const mcqQuestions = await parseMCQContent(mcqContent, mcqMarks);
-      questions = questions.concat(mcqQuestions);
-    }
+    // Parse questions in parallel for better performance
+    const [mcqQuestions, shortQuestions] = await Promise.all([
+      mcqContent && mcqContent.trim() ? parseMCQContent(mcqContent, mcqMarks) : Promise.resolve([]),
+      shortContent && shortContent.trim() ? parseShortContent(shortContent, shortMarks) : Promise.resolve([])
+    ]);
 
-    // Parse Short questions
-    if (shortContent && shortContent.trim()) {
-      const shortQuestions = await parseShortContent(shortContent, shortMarks);
-      questions = questions.concat(shortQuestions);
+    questions = [...mcqQuestions, ...shortQuestions];
+
+    if (questions.length === 0) {
+      throw new Error('No valid questions were parsed from the provided content');
     }
 
     const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
 
-    // Save to database with timeout handling
+    // Validate total marks
+    if (totalMarks <= 0) {
+      throw new Error('Total marks must be greater than 0');
+    }
+
+    // Save to database with retry and timeout handling
     const exam = new Exam({
       exam_title: examTitle,
       exam_type: examType,
@@ -575,13 +595,33 @@ app.post('/api/structure-quiz', async (req, res) => {
       questions: questions
     });
 
-    // Set a timeout for the save operation
-    const savePromise = exam.save();
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Database operation timed out')), 15000);
-    });
+    const maxRetries = 3;
+    let currentTry = 1;
+    let lastError = null;
 
-    await Promise.race([savePromise, timeoutPromise]);
+    while (currentTry <= maxRetries) {
+      try {
+        // Set a timeout for the save operation
+        const savePromise = exam.save({ timeout: 30000 }); // 30 second timeout
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Database operation timed out')), 30000);
+        });
+
+        await Promise.race([savePromise, timeoutPromise]);
+        break; // If successful, exit the retry loop
+      } catch (error) {
+        lastError = error;
+        console.error(`Attempt ${currentTry} failed:`, error.message);
+        
+        if (currentTry === maxRetries) {
+          throw new Error(`Failed to save exam after ${maxRetries} attempts: ${error.message}`);
+        }
+        
+        // Wait before retrying (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, Math.pow(2, currentTry) * 1000));
+        currentTry++;
+      }
+    }
 
     res.json({
       success: true,
@@ -599,17 +639,25 @@ app.post('/api/structure-quiz', async (req, res) => {
     
     let statusCode = 500;
     let errorMessage = error.message;
+    let errorDetails = {};
 
     // Handle specific error types
     if (error.name === 'MongooseError' || error.name === 'MongoError') {
       statusCode = 503;
       errorMessage = 'Database service temporarily unavailable. Please try again in a few moments.';
+      errorDetails.type = 'database';
     } else if (error.message.includes('timed out')) {
       statusCode = 504;
       errorMessage = 'The operation timed out. Please try again.';
+      errorDetails.type = 'timeout';
     } else if (mongoose.connection.readyState !== 1) {
       statusCode = 503;
       errorMessage = 'Database connection is not available. Please try again in a few moments.';
+      errorDetails.type = 'connection';
+    } else if (error.message.includes('parsing')) {
+      statusCode = 400;
+      errorMessage = error.message;
+      errorDetails.type = 'parsing';
     }
 
     res.status(statusCode).json({
@@ -620,88 +668,121 @@ app.post('/api/structure-quiz', async (req, res) => {
   }
 });
 
-// Helper function to parse MCQ content
+// Helper function to parse MCQ content with validation and error handling
 async function parseMCQContent(content, defaultMarks) {
-  const questions = [];
-  const lines = content.split('\n');
-  let currentQuestion = null;
-  let options = [];
-  let correctAnswer = null;
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    // Check if it's a question (starts with number)
-    const questionMatch = line.match(/^(\d+)\.\s*(.+)/);
-    if (questionMatch) {
-      // Save previous question
-      if (currentQuestion && options.length >= 4) {
-        questions.push({
-          type: 'MCQ',
-          text: currentQuestion,
-          options: options.slice(0, 4),
-          answer: correctAnswer || options[0],
-          marks: defaultMarks
-        });
-      }
-
-      currentQuestion = questionMatch[2];
-      options = [];
-      correctAnswer = null;
+  try {
+    if (!content || !defaultMarks) {
+      throw new Error('Content and marks are required for MCQ parsing');
     }
-    // Check if it's an option
-    else if (line.match(/^[A-D][\.\)]\s*(.+)/)) {
-      const optionMatch = line.match(/^[A-D][\.\)]\s*(.+)/);
-      if (optionMatch) {
-        options.push(optionMatch[1].trim());
+
+    const questions = [];
+    const lines = content.split('\n').filter(line => line.trim());
+    let currentQuestion = null;
+    let options = [];
+    let correctAnswer = null;
+    let questionNumber = 0;
+
+    // Process lines in batches for better performance
+    for (let line of lines) {
+      line = line.trim();
+
+      // Check if it's a question (starts with number)
+      const questionMatch = line.match(/^(\d+)\.\s*(.+)/);
+      if (questionMatch) {
+        // Save previous question if valid
+        if (currentQuestion && options.length >= 4) {
+          questions.push({
+            type: 'MCQ',
+            text: currentQuestion,
+            options: options.slice(0, 4),
+            answer: correctAnswer || options[0],
+            marks: defaultMarks,
+            question_number: questionNumber
+          });
+        }
+
+        currentQuestion = questionMatch[2];
+        options = [];
+        correctAnswer = null;
+        questionNumber++;
+      }
+      // Handle options
+      else if (line.match(/^[A-D][\.\)]\s*(.+)/)) {
+        const optionMatch = line.match(/^[A-D][\.\)]\s*(.+)/);
+        if (optionMatch) {
+          options.push(optionMatch[1].trim());
+        }
+      }
+      // Handle correct answer indicator
+      else if (line.match(/\(?Correct:\s*([A-D])\)?/i)) {
+        const correctMatch = line.match(/\(?Correct:\s*([A-D])\)?/i);
+        if (correctMatch && options.length > 0) {
+          const correctIndex = correctMatch[1].toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
+          correctAnswer = options[correctIndex] || options[0];
+        }
       }
     }
-    // Check for correct answer indicator
-    else if (line.match(/\(?Correct:\s*([A-D])\)?/i)) {
-      const correctMatch = line.match(/\(?Correct:\s*([A-D])\)?/i);
-      if (correctMatch && options.length > 0) {
-        const correctIndex = correctMatch[1].toUpperCase().charCodeAt(0) - 'A'.charCodeAt(0);
-        correctAnswer = options[correctIndex] || options[0];
-      }
-    }
-  }
 
-  // Add last question
-  if (currentQuestion && options.length >= 4) {
-    questions.push({
-      type: 'MCQ',
-      text: currentQuestion,
-      options: options.slice(0, 4),
-      answer: correctAnswer || options[0],
-      marks: defaultMarks
-    });
-  }
-
-  return questions;
-}
-
-// Helper function to parse short content
-async function parseShortContent(content, defaultMarks) {
-  const questions = [];
-  const lines = content.split('\n');
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    let questionText = line.replace(/^\d+\.\s*/, '');
-    if (questionText) {
+    // Add the last question if valid
+    if (currentQuestion && options.length >= 4) {
       questions.push({
-        type: 'Short',
-        text: questionText,
-        answer: "Expected answer based on course material",
-        marks: defaultMarks
+        type: 'MCQ',
+        text: currentQuestion,
+        options: options.slice(0, 4),
+        answer: correctAnswer || options[0],
+        marks: defaultMarks,
+        question_number: questionNumber
       });
     }
-  }
 
-  return questions;
+    if (questions.length === 0) {
+      throw new Error('No valid MCQ questions found in the content');
+    }
+
+    return questions;
+  } catch (error) {
+    console.error('Error parsing MCQ content:', error);
+    throw new Error(`Failed to parse MCQ questions: ${error.message}`);
+  }
+}
+
+// Helper function to parse short content with validation and error handling
+async function parseShortContent(content, defaultMarks) {
+  try {
+    if (!content || !defaultMarks) {
+      throw new Error('Content and marks are required for short answer parsing');
+    }
+
+    const questions = [];
+    const lines = content.split('\n').filter(line => line.trim());
+    let questionNumber = 0;
+
+    for (let line of lines) {
+      const questionMatch = line.match(/^(\d+)\.\s*(.+)/);
+      if (questionMatch) {
+        questionNumber++;
+        const questionText = questionMatch[2].trim();
+        if (questionText) {
+          questions.push({
+            type: 'Short',
+            text: questionText,
+            answer: "Expected answer based on course material",
+            marks: defaultMarks,
+            question_number: questionNumber
+          });
+        }
+      }
+    }
+
+    if (questions.length === 0) {
+      throw new Error('No valid short answer questions found in the content');
+    }
+
+    return questions;
+  } catch (error) {
+    console.error('Error parsing short answer content:', error);
+    throw new Error(`Failed to parse short answer questions: ${error.message}`);
+  }
 }
 
 // Teacher: Get all exam sessions/results
@@ -757,9 +838,20 @@ app.get('/api/teacher/exam/:examId/results', async (req, res) => {
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   try {
+    const mongoStatus = {
+      readyState: mongoose.connection.readyState,
+      connected: mongoose.connection.readyState === 1,
+      status: ['disconnected', 'connected', 'connecting', 'disconnecting'][mongoose.connection.readyState] || 'unknown'
+    };
+
     // Basic connectivity check first
-    if (mongoose.connection.readyState !== 1) {
-      throw new Error('MongoDB is not connected');
+    if (mongoStatus.readyState !== 1) {
+      return res.status(503).json({
+        success: false,
+        message: 'Service partially degraded',
+        database: mongoStatus,
+        timestamp: new Date().toISOString()
+      });
     }
 
     // Test database write with timeout
@@ -782,10 +874,10 @@ app.get('/api/health', async (req, res) => {
     );
 
     await Promise.race([
-      Promise.all([
-        testExam.save(),
-        testExam.save().then(saved => Exam.findByIdAndDelete(saved._id))
-      ]),
+      (async () => {
+        const saved = await testExam.save();
+        await Exam.findByIdAndDelete(saved._id);
+      })(),
       timeout
     ]);
 
@@ -813,6 +905,31 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Global error handler (MUST be before catch-all route)
+app.use((err, req, res, next) => {
+  console.error('Global error handler caught:', err);
+
+  // Always ensure JSON response for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(err.status || 500).json({
+      success: false,
+      error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
+      errorDetails: process.env.NODE_ENV === 'development' ? {
+        stack: err.stack,
+        name: err.name,
+        message: err.message
+      } : undefined
+    });
+  }
+
+  // For non-API routes, send generic error
+  res.status(err.status || 500).json({
+    success: false,
+    error: 'An error occurred',
+    message: err.message
+  });
+});
+
 // Serve index.html for all other routes to support client-side routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'dist', 'index.html'));
@@ -824,20 +941,6 @@ if (process.env.NODE_ENV !== 'production') {
     console.log(`Server is running on port ${PORT}`);
   });
 }
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('Global error handler caught:', err);
-  res.status(500).json({
-    success: false,
-    error: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,
-    errorDetails: process.env.NODE_ENV === 'development' ? {
-      stack: err.stack,
-      name: err.name,
-      message: err.message
-    } : undefined
-  });
-});
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
