@@ -14,7 +14,14 @@ dotenv.config();
 const app = express();
 const PORT = 3001;
 
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://examapp-git-main-danyalishaq1-gmailcoms-projects.vercel.app', 
+       'https://examapp-9qxj27i4k-danyalishaq1-gmailcoms-projects.vercel.app']
+    : 'http://localhost:5173',
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(process.cwd(), 'dist')));
 
