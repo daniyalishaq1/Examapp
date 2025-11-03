@@ -14,6 +14,10 @@ const teacherSchema = new mongoose.Schema({
     trim: true
   },
   // Simple auth - in production, use proper password hashing
+  password: {
+    type: String,
+    required: true
+  },
   authCode: {
     type: String,
     required: true

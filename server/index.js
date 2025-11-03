@@ -472,7 +472,7 @@ app.post('/api/student/submit-answer', async (req, res) => {
 
 // Teacher: Signup
 app.post('/api/teacher/signup', async (req, res) => {
-  const { name, email, authCode } = req.body;
+  const { name, email, password, authCode } = req.body;
 
   try {
     // Validate auth code
@@ -488,7 +488,7 @@ app.post('/api/teacher/signup', async (req, res) => {
     }
 
     // Create teacher
-    const teacher = new Teacher({ name, email, authCode });
+    const teacher = new Teacher({ name, email, password, authCode });
     await teacher.save();
 
     res.json({ success: true, teacher: { _id: teacher._id, name: teacher.name, email: teacher.email } });
@@ -500,22 +500,66 @@ app.post('/api/teacher/signup', async (req, res) => {
 
 // Teacher: Login
 app.post('/api/teacher/login', async (req, res) => {
-  const { email, authCode } = req.body;
+  const { email, password } = req.body;
 
   try {
-    const TEACHER_AUTH_CODE = 'aiskillbridge@645';
-    if (authCode !== TEACHER_AUTH_CODE) {
-      return res.status(403).json({ success: false, error: 'Invalid authentication code' });
-    }
-
     const teacher = await Teacher.findOne({ email });
     if (!teacher) {
       return res.status(404).json({ success: false, error: 'Teacher not found' });
     }
 
+    // Simple password check - in production, use bcrypt
+    if (teacher.password !== password) {
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+
     res.json({ success: true, teacher: { _id: teacher._id, name: teacher.name, email: teacher.email } });
   } catch (error) {
     console.error('Teacher login error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Student: Signup
+app.post('/api/student/signup', async (req, res) => {
+  const { name, email, password } = req.body;
+
+  try {
+    // Check if student already exists
+    const existingStudent = await Student.findOne({ email });
+    if (existingStudent) {
+      return res.status(400).json({ success: false, error: 'Student with this email already exists' });
+    }
+
+    // Create student
+    const student = new Student({ name, email, password });
+    await student.save();
+
+    res.json({ success: true, student: { _id: student._id, name: student.name, email: student.email } });
+  } catch (error) {
+    console.error('Student signup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Student: Login
+app.post('/api/student/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const student = await Student.findOne({ email });
+    if (!student) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
+
+    // Simple password check - in production, use bcrypt
+    if (student.password !== password) {
+      return res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+
+    res.json({ success: true, student: { _id: student._id, name: student.name, email: student.email } });
+  } catch (error) {
+    console.error('Student login error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

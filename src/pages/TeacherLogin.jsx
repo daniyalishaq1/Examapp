@@ -10,6 +10,7 @@ const TeacherLogin = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     authCode: ''
   })
 
@@ -24,12 +25,17 @@ const TeacherLogin = () => {
   const validateForm = () => {
     // Check required fields based on mode
     if (mode === 'signup') {
-      if (!formData.name.trim() || !formData.email.trim() || !formData.authCode.trim()) {
+      if (!formData.name.trim() || !formData.email.trim() || !formData.password.trim() || !formData.authCode.trim()) {
         toast.error('Please fill in all fields')
         return false
       }
+      // Password length check
+      if (formData.password.length < 6) {
+        toast.error('Password must be at least 6 characters')
+        return false
+      }
     } else {
-      if (!formData.email.trim() || !formData.authCode.trim()) {
+      if (!formData.email.trim() || !formData.password.trim()) {
         toast.error('Please fill in all fields')
         return false
       }
@@ -57,8 +63,8 @@ const TeacherLogin = () => {
     try {
       const endpoint = mode === 'signup' ? '/api/teacher/signup' : '/api/teacher/login'
       const payload = mode === 'signup'
-        ? { name: formData.name, email: formData.email, authCode: formData.authCode }
-        : { email: formData.email, authCode: formData.authCode }
+        ? { name: formData.name, email: formData.email, password: formData.password, authCode: formData.authCode }
+        : { email: formData.email, password: formData.password }
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -95,6 +101,7 @@ const TeacherLogin = () => {
     setFormData({
       name: '',
       email: '',
+      password: '',
       authCode: ''
     })
     setShowPassword(false)
@@ -181,19 +188,19 @@ const TeacherLogin = () => {
               />
             </div>
 
-            {/* Authentication Code Field */}
+            {/* Password Field */}
             <div className="space-y-2">
-              <label htmlFor="authCode" className="block text-sm font-medium text-primary-700">
-                Authentication Code
+              <label htmlFor="password" className="block text-sm font-medium text-primary-700">
+                Password
               </label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  id="authCode"
-                  name="authCode"
-                  value={formData.authCode}
+                  id="password"
+                  name="password"
+                  value={formData.password}
                   onChange={handleChange}
-                  placeholder="Enter your authentication code"
+                  placeholder="Enter your password"
                   className="w-full px-4 py-3 bg-white border border-primary-200 rounded-xl text-primary-900 placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition duration-200 pr-12"
                 />
                 <button
@@ -214,6 +221,24 @@ const TeacherLogin = () => {
                 </button>
               </div>
             </div>
+
+            {/* Authentication Code Field - Only for Signup */}
+            {mode === 'signup' && (
+              <div className="space-y-2">
+                <label htmlFor="authCode" className="block text-sm font-medium text-primary-700">
+                  Authentication Code
+                </label>
+                <input
+                  type="text"
+                  id="authCode"
+                  name="authCode"
+                  value={formData.authCode}
+                  onChange={handleChange}
+                  placeholder="Enter teacher authentication code"
+                  className="w-full px-4 py-3 bg-white border border-primary-200 rounded-xl text-primary-900 placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-accent-500 focus:border-transparent transition duration-200"
+                />
+              </div>
+            )}
 
             {/* Submit Button */}
             <button
@@ -242,11 +267,11 @@ const TeacherLogin = () => {
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
               <div className="text-sm text-primary-600 space-y-1">
-                <p className="font-medium">Authentication Code</p>
+                <p className="font-medium">{mode === 'signup' ? 'Account Creation' : 'Secure Access'}</p>
                 <p className="text-primary-500">
                   {mode === 'signup'
-                    ? 'Create a secure authentication code to protect your account. This code will be used to sign in and manage your exams.'
-                    : 'Enter your authentication code to access your teacher dashboard and manage exams.'}
+                    ? 'You need a valid authentication code to create a teacher account. Contact your administrator to get the code.'
+                    : 'Sign in with your email and password to access your teacher dashboard and manage exams.'}
                 </p>
               </div>
             </div>
