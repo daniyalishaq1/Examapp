@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 
-const ResultsDashboard = () => {
+const ResultsDashboard = ({ teacherId }) => {
   const [sessions, setSessions] = useState([])
   const [exams, setExams] = useState([])
   const [loading, setLoading] = useState(true)
@@ -10,8 +10,10 @@ const ResultsDashboard = () => {
   const [view, setView] = useState('results') // 'results' or 'exams'
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    if (teacherId) {
+      fetchData()
+    }
+  }, [teacherId])
 
   const fetchData = async () => {
     try {
@@ -19,8 +21,8 @@ const ResultsDashboard = () => {
       const resultsResponse = await fetch('/api/teacher/all-results')
       const resultsData = await resultsResponse.json()
 
-      // Fetch all exams
-      const examsResponse = await fetch('/api/quizzes')
+      // Fetch teacher's exams
+      const examsResponse = await fetch(`/api/teacher/${teacherId}/exams`)
       const examsData = await examsResponse.json()
 
       if (resultsData.success && examsData.success) {
@@ -37,21 +39,58 @@ const ResultsDashboard = () => {
     }
   }
 
-  const handleDeleteExam = async (examId) => {
-    if (!window.confirm('Are you sure you want to delete this exam? This will also delete all student results for this exam.')) {
+  const copyExamLink = (exam) => {
+    const link = `${window.location.origin}/student/exam/link/${exam.examLink}`
+    navigator.clipboard.writeText(link)
+    toast.success('Exam link copied to clipboard!')
+  }
+
+  const expireExamLink = async (examId) => {
+    if (!window.confirm('Are you sure you want to expire this exam link? Students will no longer be able to access it.')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/quizzes/${examId}`, {
-        method: 'DELETE'
-      })
-
+      const response = await fetch(`/api/exam/${examId}/expire-link`, { method: 'POST' })
       const result = await response.json()
+      if (result.success) {
+        toast.success('Exam link expired successfully')
+        fetchData()
+      } else {
+        toast.error(result.error || 'Failed to expire link')
+      }
+    } catch (error) {
+      console.error('Error expiring link:', error)
+      toast.error('Failed to expire link')
+    }
+  }
 
+  const generateNewLink = async (examId) => {
+    try {
+      const response = await fetch(`/api/exam/${examId}/new-link`, { method: 'POST' })
+      const result = await response.json()
+      if (result.success) {
+        toast.success('New exam link generated!')
+        fetchData()
+      } else {
+        toast.error(result.error || 'Failed to generate new link')
+      }
+    } catch (error) {
+      console.error('Error generating new link:', error)
+      toast.error('Failed to generate new link')
+    }
+  }
+
+  const deleteExam = async (examId) => {
+    if (!window.confirm('Are you sure you want to delete this exam? All associated student results will also be deleted. This action cannot be undone.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/quizzes/${examId}`, { method: 'DELETE' })
+      const result = await response.json()
       if (result.success) {
         toast.success('Exam deleted successfully')
-        // Refresh data
         fetchData()
         // Reset filter if the deleted exam was selected
         if (filter === examId) {
@@ -62,7 +101,7 @@ const ResultsDashboard = () => {
       }
     } catch (error) {
       console.error('Error deleting exam:', error)
-      toast.error('An error occurred while deleting exam')
+      toast.error('Failed to delete exam')
     }
   }
 
@@ -315,7 +354,14 @@ const ResultsDashboard = () => {
       )}
         </>
       ) : (
-        <ExamsManagementView exams={exams} onDelete={handleDeleteExam} sessions={sessions} />
+        <ExamsManagementView
+          exams={exams}
+          onDelete={deleteExam}
+          sessions={sessions}
+          onCopyLink={copyExamLink}
+          onExpireLink={expireExamLink}
+          onGenerateNewLink={generateNewLink}
+        />
       )}
     </div>
   )
@@ -337,7 +383,7 @@ const StatCard = ({ title, value, icon, color }) => {
   )
 }
 
-const ExamsManagementView = ({ exams, onDelete, sessions }) => {
+const ExamsManagementView = ({ exams, onDelete, sessions, onCopyLink, onExpireLink, onGenerateNewLink }) => {
   const getExamStats = (examId) => {
     const examSessions = sessions.filter(s => s.exam?._id === examId)
     const totalAttempts = examSessions.length
@@ -408,16 +454,46 @@ const ExamsManagementView = ({ exams, onDelete, sessions }) => {
                 </div>
               )}
 
+              {/* Link Status */}
+              <div className="mb-5 p-3 bg-primary-50 border border-primary-200 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${exam.linkActive ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                  <span className="text-sm font-medium text-gray-700">
+                    Link Status: {exam.linkActive ? 'Active' : 'Expired'}
+                  </span>
+                </div>
+              </div>
+
               {/* Actions */}
-              <button
-                onClick={() => onDelete(exam._id)}
-                className="w-full bg-white border border-red-200 text-red-600 py-3 px-4 rounded-xl font-semibold hover:bg-red-50 transition-all flex items-center justify-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete Exam
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => onCopyLink(exam)}
+                  className="flex-1 min-w-[120px] px-3 py-2 bg-accent-600 text-white rounded-lg text-sm font-medium hover:bg-accent-700 transition"
+                >
+                  Copy Link
+                </button>
+                {exam.linkActive ? (
+                  <button
+                    onClick={() => onExpireLink(exam._id)}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-amber-600 text-white rounded-lg text-sm font-medium hover:bg-amber-700 transition"
+                  >
+                    Expire Link
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onGenerateNewLink(exam._id)}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition"
+                  >
+                    New Link
+                  </button>
+                )}
+                <button
+                  onClick={() => onDelete(exam._id)}
+                  className="px-3 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         )

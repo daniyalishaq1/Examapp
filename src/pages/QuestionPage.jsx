@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
 const QuestionPage = () => {
-  const { examId } = useParams();
+  const { examId, examLink } = useParams();
   const navigate = useNavigate();
-  const [exam, setExam] = useState(null);
+  const location = useLocation();
+  const [exam, setExam] = useState(location.state?.exam || null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -16,9 +17,15 @@ const QuestionPage = () => {
 
   const MAX_WARNINGS = 5;
 
-  // Fetch exam data
+  // Fetch exam data by examId or examLink
   useEffect(() => {
     const fetchExam = async () => {
+      // If exam is already loaded from location state, no need to fetch
+      if (exam && examId) {
+        setTimeRemaining(exam.duration * 60);
+        return;
+      }
+
       try {
         const studentData = JSON.parse(localStorage.getItem('student') || '{}');
         if (!studentData.name || !studentData.email) {
@@ -27,25 +34,37 @@ const QuestionPage = () => {
           return;
         }
 
-        const response = await fetch(`/api/quizzes/${examId}`);
+        let response;
+        if (examLink) {
+          // Fetch by exam link
+          response = await fetch(`/api/exam/link/${examLink}`);
+        } else if (examId) {
+          // Fetch by exam ID
+          response = await fetch(`/api/quizzes/${examId}`);
+        } else {
+          toast.error('Invalid exam access');
+          navigate('/student/exams');
+          return;
+        }
+
         const result = await response.json();
 
         if (result.success) {
           setExam(result.data);
           setTimeRemaining(result.data.duration * 60); // Convert to seconds
         } else {
-          toast.error('Failed to load exam');
+          toast.error(result.error || 'Exam not found or link has expired');
           navigate('/student/exams');
         }
       } catch (error) {
         console.error('Error:', error);
-        toast.error('An error occurred');
+        toast.error('An error occurred while loading the exam');
         navigate('/student/exams');
       }
     };
 
     fetchExam();
-  }, [examId, navigate]);
+  }, [examId, examLink, navigate]);
 
   // Timer countdown
   useEffect(() => {
@@ -162,7 +181,7 @@ const QuestionPage = () => {
         body: JSON.stringify({
           student_name: studentData.name,
           student_email: studentData.email,
-          exam_id: examId,
+          exam_id: exam._id,
           answers: answers,
           duration_taken: durationTaken
         })

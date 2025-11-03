@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import QuizPreview from '../components/QuizPreview'
 import ResultsDashboard from '../components/ResultsDashboard'
 
 const TeacherPage = () => {
+  const navigate = useNavigate()
+  const [teacher, setTeacher] = useState(null)
   const [activeTab, setActiveTab] = useState('create') // 'create' or 'results'
   const [formData, setFormData] = useState({
     examTitle: '',
@@ -18,6 +21,23 @@ const TeacherPage = () => {
   const [structuredQuiz, setStructuredQuiz] = useState(null)
   const [loading, setLoading] = useState(false)
   const [llmProvider, setLlmProvider] = useState('mock')
+
+  // Check if teacher is logged in
+  useEffect(() => {
+    const teacherData = localStorage.getItem('teacher')
+    if (!teacherData) {
+      toast.error('Please login first')
+      navigate('/teacher')
+      return
+    }
+    try {
+      const parsedTeacher = JSON.parse(teacherData)
+      setTeacher(parsedTeacher)
+    } catch (error) {
+      console.error('Failed to parse teacher data:', error)
+      navigate('/teacher')
+    }
+  }, [navigate])
 
   // Check LLM configuration on mount
   useEffect(() => {
@@ -76,7 +96,10 @@ const TeacherPage = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          teacherId: teacher._id
+        })
       })
 
       const result = await response.json()
@@ -128,23 +151,58 @@ D. Mark Zuckerberg
     toast.success('Example loaded!')
   }
 
+  const handleLogout = () => {
+    localStorage.removeItem('teacher')
+    toast.success('Logged out successfully')
+    navigate('/teacher')
+  }
+
   const showMCQSection = formData.examType === 'MCQ' || formData.examType === 'Mixed'
   const showShortSection = formData.examType === 'Short' || formData.examType === 'Mixed'
+
+  if (!teacher) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-primary-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-primary-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-4xl font-semibold text-gray-900 mb-3">
-            QuickExam Teacher Portal
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Create AI-powered exams and view student results
-          </p>
-          <div className="mt-4 inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium bg-white border border-primary-200 text-gray-700 shadow-soft">
-            <span className="w-2 h-2 bg-accent-600 rounded-full mr-2 animate-pulse"></span>
-            LLM Provider: {llmProvider.toUpperCase()}
+          <div className="flex justify-between items-start mb-6">
+            <div className="flex-1"></div>
+            <div className="flex-1 text-center">
+              <h1 className="text-4xl font-semibold text-gray-900 mb-3">
+                QuickExam Teacher Portal
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Create AI-powered exams and view student results
+              </p>
+            </div>
+            <div className="flex-1 flex justify-end">
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 transition flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Logout
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-col items-center gap-3">
+            <div className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-medium bg-white border border-primary-200 text-gray-700 shadow-soft">
+              <span className="w-2 h-2 bg-accent-600 rounded-full mr-2 animate-pulse"></span>
+              LLM Provider: {llmProvider.toUpperCase()}
+            </div>
+            <p className="text-sm text-gray-600">
+              Welcome, <span className="font-semibold text-gray-900">{teacher.name}</span>
+            </p>
           </div>
         </div>
 
@@ -369,7 +427,7 @@ D. Mark Zuckerberg
         {structuredQuiz && <QuizPreview quiz={structuredQuiz} />}
           </>
         ) : (
-          <ResultsDashboard />
+          <ResultsDashboard teacherId={teacher._id} />
         )}
       </div>
     </div>

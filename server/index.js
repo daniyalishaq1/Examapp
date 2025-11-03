@@ -8,6 +8,7 @@ import connectDB from './config/database.js';
 import Exam from './models/Exam.js';
 import Student from './models/Student.js';
 import ExamSession from './models/ExamSession.js';
+import Teacher from './models/Teacher.js';
 
 dotenv.config();
 
@@ -469,6 +470,155 @@ app.post('/api/student/submit-answer', async (req, res) => {
   }
 });
 
+// Teacher: Signup
+app.post('/api/teacher/signup', async (req, res) => {
+  const { name, email, authCode } = req.body;
+
+  try {
+    // Validate auth code
+    const TEACHER_AUTH_CODE = 'aiskillbridge@645';
+    if (authCode !== TEACHER_AUTH_CODE) {
+      return res.status(403).json({ success: false, error: 'Invalid authentication code' });
+    }
+
+    // Check if teacher already exists
+    const existingTeacher = await Teacher.findOne({ email });
+    if (existingTeacher) {
+      return res.status(400).json({ success: false, error: 'Teacher with this email already exists' });
+    }
+
+    // Create teacher
+    const teacher = new Teacher({ name, email, authCode });
+    await teacher.save();
+
+    res.json({ success: true, teacher: { _id: teacher._id, name: teacher.name, email: teacher.email } });
+  } catch (error) {
+    console.error('Teacher signup error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Teacher: Login
+app.post('/api/teacher/login', async (req, res) => {
+  const { email, authCode } = req.body;
+
+  try {
+    const TEACHER_AUTH_CODE = 'aiskillbridge@645';
+    if (authCode !== TEACHER_AUTH_CODE) {
+      return res.status(403).json({ success: false, error: 'Invalid authentication code' });
+    }
+
+    const teacher = await Teacher.findOne({ email });
+    if (!teacher) {
+      return res.status(404).json({ success: false, error: 'Teacher not found' });
+    }
+
+    res.json({ success: true, teacher: { _id: teacher._id, name: teacher.name, email: teacher.email } });
+  } catch (error) {
+    console.error('Teacher login error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get exams by teacher
+app.get('/api/teacher/:teacherId/exams', async (req, res) => {
+  try {
+    const exams = await Exam.find({ teacher: req.params.teacherId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: exams });
+  } catch (error) {
+    console.error('Error fetching teacher exams:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get exam by link
+app.get('/api/exam/link/:examLink', async (req, res) => {
+  try {
+    const exam = await Exam.findOne({ examLink: req.params.examLink, linkActive: true });
+    if (!exam) {
+      return res.status(404).json({ success: false, error: 'Exam not found or link has expired' });
+    }
+    res.json({ success: true, data: exam });
+  } catch (error) {
+    console.error('Error fetching exam by link:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Expire exam link
+app.post('/api/exam/:examId/expire-link', async (req, res) => {
+  try {
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.examId,
+      { linkActive: false, linkExpiredAt: new Date() },
+      { new: true }
+    );
+    if (!exam) {
+      return res.status(404).json({ success: false, error: 'Exam not found' });
+    }
+    res.json({ success: true, data: exam });
+  } catch (error) {
+    console.error('Error expiring link:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Generate new exam link
+app.post('/api/exam/:examId/new-link', async (req, res) => {
+  try {
+    const newLink = `exam-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.examId,
+      { examLink: newLink, linkActive: true, linkExpiredAt: null },
+      { new: true }
+    );
+    if (!exam) {
+      return res.status(404).json({ success: false, error: 'Exam not found' });
+    }
+    res.json({ success: true, data: exam });
+  } catch (error) {
+    console.error('Error generating new link:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update exam
+app.put('/api/exam/:examId', async (req, res) => {
+  try {
+    const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks } = req.body;
+
+    // Parse questions
+    const [mcqQuestions, shortQuestions] = await Promise.all([
+      mcqContent && mcqContent.trim() ? parseMCQContent(mcqContent, mcqMarks) : Promise.resolve([]),
+      shortContent && shortContent.trim() ? parseShortContent(shortContent, shortMarks) : Promise.resolve([])
+    ]);
+
+    const questions = [...mcqQuestions, ...shortQuestions];
+    const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+
+    const exam = await Exam.findByIdAndUpdate(
+      req.params.examId,
+      {
+        exam_title: examTitle,
+        exam_type: examType,
+        duration: parseInt(duration),
+        total_marks: totalMarks,
+        questions: questions
+      },
+      { new: true }
+    );
+
+    if (!exam) {
+      return res.status(404).json({ success: false, error: 'Exam not found' });
+    }
+
+    res.json({ success: true, data: exam });
+  } catch (error) {
+    console.error('Error updating exam:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Get all quizzes/exams
 app.get('/api/quizzes', async (req, res) => {
   try {
@@ -555,7 +705,7 @@ app.post('/api/structure-quiz', async (req, res) => {
       }
     }
 
-    const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks } = req.body;
+    const { examTitle, examType, duration, mcqContent, shortContent, mcqMarks, shortMarks, teacherId } = req.body;
 
     // Validate required fields
     if (!examTitle) throw new Error('Exam title is required');
@@ -586,13 +736,19 @@ app.post('/api/structure-quiz', async (req, res) => {
       throw new Error('Total marks must be greater than 0');
     }
 
+    // Generate unique exam link
+    const examLink = `exam-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
     // Save to database with retry and timeout handling
     const exam = new Exam({
       exam_title: examTitle,
       exam_type: examType,
       duration: parseInt(duration),
       total_marks: totalMarks,
-      questions: questions
+      questions: questions,
+      teacher: teacherId,
+      examLink: examLink,
+      linkActive: true
     });
 
     const maxRetries = 3;

@@ -53,6 +53,24 @@ const examSchema = new mongoose.Schema({
   created_by: {
     type: String,
     default: 'teacher'
+  },
+  teacher: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Teacher',
+    required: true
+  },
+  examLink: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  linkActive: {
+    type: Boolean,
+    default: true
+  },
+  linkExpiredAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
@@ -60,6 +78,8 @@ const examSchema = new mongoose.Schema({
 
 // Index for efficient queries
 examSchema.index({ exam_title: 1, createdAt: -1 });
+examSchema.index({ teacher: 1, createdAt: -1 });
+examSchema.index({ examLink: 1 });
 
 const Exam = mongoose.model('Exam', examSchema);
 
